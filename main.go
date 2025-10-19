@@ -1,3 +1,4 @@
+/*
 MIT License
 
 Copyright (c) 2025 Mikael Schultz <mikael@conf-t.se>
@@ -19,3 +20,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+*/
+package main
+
+import (
+	"github.com/bitcanon/ircpush/cmd"
+)
+
+// Main is the main entry point for the application.
+func main() {
+	cmd.Execute()
+}

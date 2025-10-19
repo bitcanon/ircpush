@@ -1,0 +1,25 @@
+tcp:
+  listen: ":6667"
+
+udp:
+  listen: ":6667"
+
+irc:
+  server: "irc.example.com:6667"
+  tls: true
+  tls_skip_verify: false
+  tls_client_cert: "/path/to/cert.pem"
+  tls_client_key: "/path/to/key.pem"
+  nick: "testbot"
+  realname: "Test Bot"
+  server_pass: "serverpass"
+  identify_pass: "identifypass"
+  sasl_external: false
+  sasl_login: "sasluser"
+  sasl_pass: "saslpass"
+  channels:
+    - "#channel1"
+    - "&channel2"
+  keys:
+    "#channel1": "key1"
+    "&channel2": "key2"
