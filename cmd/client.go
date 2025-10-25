@@ -141,18 +141,28 @@ Append '#channel' prefix to messages to target specific channels. Use /quit to e
 				printPrompt(os.Stdout, cfg.IRC.Nick)
 				continue
 			}
-			// Apply highlighting
-			colored := hl.Apply(line)
 
 			// Parse optional channel prefix
 			targets, msg := parseTargets(line, cfg.IRC.Channels)
+
 			if len(targets) == 0 {
-				cli.Broadcast(colored)
+				// Broadcast to all joined channels with channel-aware highlighting
+				for _, ch := range cfg.IRC.Channels {
+					ch = ensureChanPrefix(ch)
+					col := hl.ApplyFor(ch, line)
+					fmt.Fprintf(os.Stderr, "-> PRIVMSG %s: %s\n", ch, line)
+					cli.SendTo([]string{ch}, col)
+				}
 			} else {
-				// If targeted, colorize the message part only
-				coloredMsg := hl.Apply(msg)
-				cli.SendTo(targets, coloredMsg)
+				// Targeted send with channel-aware highlighting
+				for _, ch := range targets {
+					ch = ensureChanPrefix(ch)
+					col := hl.ApplyFor(ch, msg)
+					fmt.Fprintf(os.Stderr, "-> PRIVMSG %s: %s\n", ch, msg)
+					cli.SendTo([]string{ch}, col)
+				}
 			}
+
 			printPrompt(os.Stdout, cfg.IRC.Nick)
 		}
 		if err := sc.Err(); err != nil {

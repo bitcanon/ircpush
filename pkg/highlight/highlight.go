@@ -24,6 +24,7 @@ SOFTWARE.
 package highlight
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -42,9 +43,12 @@ type Highlighter struct {
 }
 
 type compiledRule struct {
-	re        *regexp.Regexp
-	stylePref string
-	wholeLine bool
+	re         *regexp.Regexp
+	stylePref  string
+	wholeLine  bool
+	includes   []string // lower-cased globs
+	excludes   []string // lower-cased globs
+	hasFilters bool
 }
 
 func New(hc config.HighlightConfig) *Highlighter {
@@ -55,31 +59,59 @@ func New(hc config.HighlightConfig) *Highlighter {
 			continue
 		}
 		style := buildStyle(r)
-		hl.rules = append(hl.rules, compiledRule{
+		cr := compiledRule{
 			re:        re,
 			stylePref: style,
 			wholeLine: r.WholeLine,
-		})
+		}
+		// compile channel filters (store as lowercase patterns)
+		for _, p := range r.Channels {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				cr.includes = append(cr.includes, strings.ToLower(p))
+			}
+		}
+		for _, p := range r.ExcludeChannels {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				cr.excludes = append(cr.excludes, strings.ToLower(p))
+			}
+		}
+		cr.hasFilters = len(cr.includes) > 0 || len(cr.excludes) > 0
+
+		hl.rules = append(hl.rules, cr)
 	}
 	return hl
 }
 
+// Apply keeps backward compatibility (no channel context).
 func (h *Highlighter) Apply(s string) string {
+	return h.ApplyFor("", s)
+}
+
+// ApplyFor applies highlighting considering the target channel.
+// If channel is empty, only rules without channel filters are considered.
+func (h *Highlighter) ApplyFor(channel string, s string) string {
 	if s == "" || len(h.rules) == 0 {
 		return s
 	}
+	chLower := strings.ToLower(strings.TrimSpace(channel))
+
 	out := s
 
-	// First: if any whole-line rule matches, color entire line with the first match.
+	// Whole-line rules: first match wins, only if rule applies to this channel.
 	for _, r := range h.rules {
+		if !h.ruleAppliesTo(r, chLower) {
+			continue
+		}
 		if r.wholeLine && r.re.MatchString(out) {
 			return r.stylePref + out + ircReset
 		}
 	}
 
-	// Then: apply per-match replacements for the rest.
+	// Per-match replacements
 	for _, r := range h.rules {
-		if r.wholeLine {
+		if !h.ruleAppliesTo(r, chLower) || r.wholeLine {
 			continue
 		}
 		out = r.re.ReplaceAllStringFunc(out, func(m string) string {
@@ -87,6 +119,39 @@ func (h *Highlighter) Apply(s string) string {
 		})
 	}
 	return out
+}
+
+func (h *Highlighter) ruleAppliesTo(r compiledRule, chLower string) bool {
+	// No channel context provided: only rules without filters apply.
+	if chLower == "" {
+		return !r.hasFilters
+	}
+	// Exclusions win
+	for _, ex := range r.excludes {
+		if globMatch(ex, chLower) {
+			return false
+		}
+	}
+	// If includes specified, require a match
+	if len(r.includes) > 0 {
+		for _, in := range r.includes {
+			if globMatch(in, chLower) {
+				return true
+			}
+		}
+		return false
+	}
+	// No includes -> applies to all (unless excluded above)
+	return true
+}
+
+func globMatch(pattern, name string) bool {
+	ok, err := filepath.Match(pattern, name)
+	if err != nil {
+		// On invalid pattern, fail closed (no match)
+		return false
+	}
+	return ok
 }
 
 func compileRule(r config.HighlightRule) *regexp.Regexp {

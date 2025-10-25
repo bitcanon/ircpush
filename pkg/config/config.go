@@ -62,13 +62,15 @@ type HighlightConfig struct {
 }
 
 type HighlightRule struct {
-	Kind            string `yaml:"kind"               mapstructure:"kind"` // "word" | "regex"
-	Pattern         string `yaml:"pattern"            mapstructure:"pattern"`
-	Color           string `yaml:"color"              mapstructure:"color"` // name or "03[,15]"
-	Bold            bool   `yaml:"bold"               mapstructure:"bold"`
-	Underline       bool   `yaml:"underline"          mapstructure:"underline"`
-	CaseInsensitive bool   `yaml:"case_insensitive"   mapstructure:"case_insensitive"`
-	WholeLine       bool   `yaml:"whole_line"         mapstructure:"whole_line"` // color entire line on match
+	Kind            string   `yaml:"kind"               mapstructure:"kind"` // "word" | "regex"
+	Pattern         string   `yaml:"pattern"            mapstructure:"pattern"`
+	Color           string   `yaml:"color"              mapstructure:"color"` // name or "03[,15]"
+	Bold            bool     `yaml:"bold"               mapstructure:"bold"`
+	Underline       bool     `yaml:"underline"          mapstructure:"underline"`
+	CaseInsensitive bool     `yaml:"case_insensitive"   mapstructure:"case_insensitive"`
+	WholeLine       bool     `yaml:"whole_line"         mapstructure:"whole_line"`
+	Channels        []string `yaml:"channels"           mapstructure:"channels"`
+	ExcludeChannels []string `yaml:"exclude_channels"   mapstructure:"exclude_channels"`
 }
 
 // Optional: legacy direct YAML loader (kept for tests/tools).
