@@ -58,7 +58,8 @@ type IRCConfig struct {
 }
 
 type HighlightConfig struct {
-	Rules []HighlightRule `yaml:"rules" mapstructure:"rules"`
+	Rules      []HighlightRule `yaml:"rules"       mapstructure:"rules"`
+	AutoReload bool            `yaml:"auto_reload" mapstructure:"auto_reload"` // watch file and auto-reload rules
 }
 
 type HighlightRule struct {

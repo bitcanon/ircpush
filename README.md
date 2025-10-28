@@ -93,3 +93,13 @@ Test listener:
 ```bash
 echo '#server hello from nc' | nc 10.20.30.40 9000
 ```
+
+## Reloading configuration
+ircpush supports live reload of highlight rules:
+- Automatic: editing the active config file triggers reload (inotify).
+- Manual: systemctl reload ircpush sends SIGHUP to reload.
+
+Notes:
+- Highlight rules are hot-reloaded.
+- Changing tcp.listen or core IRC settings currently requires a restart:
+  sudo systemctl restart ircpush

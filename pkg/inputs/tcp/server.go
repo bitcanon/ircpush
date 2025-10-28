@@ -40,15 +40,21 @@ import (
 
 // Server receives messages over TCP and forwards them to IRC.
 type Server struct {
-	ListenAddr string      // e.g. "10.20.30.40:9000" or ":9000"
-	IRC        *irc.Client // already started irc client
-	HL         *highlight.Highlighter
+	ListenAddr   string
+	IRC          *irc.Client
+
+	// Highlighter can be swapped at runtime via SetHighlighter.
+	mu sync.RWMutex
+	HL *highlight.Highlighter
 
 	// Optional logging sink; if nil, logs go to stderr.
 	Logger Logger
 
+	// Control whether to log each received message (default false).
+	LogMessages bool
+
 	// Scanner limits
-	MaxLineBytes int // default 64k if zero
+	MaxLineBytes int
 
 	ln   net.Listener
 	wg   sync.WaitGroup
@@ -177,8 +183,9 @@ func (s *Server) handleConn(ctx context.Context, c net.Conn) {
 		// Parse optional leading channels (e.g. "#server msg" or "#a,#b msg")
 		targets, msg := parseTargets(line)
 		if len(targets) == 0 {
-			// No prefix found -> broadcast to configured channels using HL per channel
-			s.logf("tcp: %s -> broadcast: %q", ra, line)
+			if s.LogMessages {
+				s.logf("tcp: %s -> broadcast: %q", ra, line)
+			}
 			s.broadcast(line)
 			continue
 		}
@@ -186,10 +193,14 @@ func (s *Server) handleConn(ctx context.Context, c net.Conn) {
 		// Send only to specified channels
 		if strings.TrimSpace(msg) == "" {
 			// If there's no message after the channels, skip
-			s.logf("tcp: %s -> empty message after targets %v", ra, targets)
+			if s.LogMessages {
+				s.logf("tcp: %s -> empty message after targets %v", ra, targets)
+			}
 			continue
 		}
-		s.logf("tcp: %s -> targets %v: %q", ra, targets, msg)
+		if s.LogMessages {
+			s.logf("tcp: %s -> targets %v: %q", ra, targets, msg)
+		}
 		for _, ch := range targets {
 			colored := s.applyHL(ch, msg)
 			s.IRC.SendTo([]string{ch}, colored)
@@ -201,16 +212,27 @@ func (s *Server) handleConn(ctx context.Context, c net.Conn) {
 }
 
 func (s *Server) applyHL(channel, msg string) string {
-	if s.HL == nil {
+	s.mu.RLock()
+	hl := s.HL
+	s.mu.RUnlock()
+	if hl == nil {
 		return msg
 	}
-	return s.HL.ApplyFor(channel, msg)
+	return hl.ApplyFor(channel, msg)
+}
+
+// SetHighlighter replaces the active highlighter safely at runtime.
+func (s *Server) SetHighlighter(h *highlight.Highlighter) {
+	s.mu.Lock()
+	s.HL = h
+	s.mu.Unlock()
+	s.logf("tcp: highlighter reloaded")
 }
 
 func (s *Server) broadcast(line string) {
 	// We don't know the configured channel list here. The IRC client has it.
 	// Broadcast and let the client expand channels.
-	colored := s.HL.Apply(line)
+	colored := s.applyHL("", line)
 	s.IRC.Broadcast(colored)
 }
 

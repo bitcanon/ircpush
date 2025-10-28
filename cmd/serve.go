@@ -26,6 +26,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -36,6 +37,7 @@ import (
 	"github.com/bitcanon/ircpush/pkg/highlight"
 	tcpin "github.com/bitcanon/ircpush/pkg/inputs/tcp"
 	"github.com/bitcanon/ircpush/pkg/irc"
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -71,12 +73,8 @@ var serveCmd = &cobra.Command{
 
 		// Build IRC client
 		cli, err := irc.New(cfg.IRC, irc.Handlers{
-			Connected: func() {
-				fmt.Fprintln(os.Stderr, "irc: connected, joining channels...")
-			},
-			Welcome: func(raw string) {
-				fmt.Fprintf(os.Stderr, "<- %s\n", raw)
-			},
+			Connected: func() { fmt.Fprintln(os.Stderr, "irc: connected, joining channels...") },
+			Welcome:   func(raw string) { fmt.Fprintf(os.Stderr, "<- %s\n", raw) },
 			Disconnected: func() {
 				fmt.Fprintln(os.Stderr, "irc: disconnected (will auto-reconnect)")
 			},
@@ -105,20 +103,68 @@ var serveCmd = &cobra.Command{
 
 		// Start TCP server
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-		defer stop() // stop signal handling on exit
+		defer stop()
 
-		// TCP server that forwards to IRC client
+		// Create a logger that writes to stderr (captured by systemd)
+		slog := log.New(os.Stderr, "", 0)
+
 		srv := &tcpin.Server{
 			ListenAddr:   cfg.TCP.Listen,
 			IRC:          cli,
 			HL:           hl,
-			MaxLineBytes: 128 * 1024, // allow fairly large lines
+			MaxLineBytes: 128 * 1024,
+			Logger:       slog,
+			// Only log per-message traffic when --debug or IRCPUSH_DEBUG=true
+			LogMessages: viper.GetBool("debug"),
 		}
 		if err := srv.Start(ctx); err != nil {
 			return err
 		}
 
-		// Wait for signal
+		// Reload handler updates runtime parts (currently: highlighting rules)
+		reload := func(tag string) {
+			var newCfg appcfg.Config
+			if err := viper.Unmarshal(&newCfg); err != nil {
+				fmt.Fprintf(os.Stderr, "reload: unmarshal failed: %v\n", err)
+				return
+			}
+			// Hot-reload highlight rules
+			srv.SetHighlighter(highlight.New(newCfg.Highlight))
+
+			// Non-hot fields (inform user to restart if changed)
+			if newCfg.TCP.Listen != cfg.TCP.Listen {
+				fmt.Fprintf(os.Stderr, "reload: tcp.listen changed (%s -> %s), restart required\n", cfg.TCP.Listen, newCfg.TCP.Listen)
+			}
+			if newCfg.IRC.Server != cfg.IRC.Server || newCfg.IRC.Nick != cfg.IRC.Nick {
+				fmt.Fprintf(os.Stderr, "reload: IRC connection settings changed, restart recommended\n")
+			}
+			cfg = newCfg
+			fmt.Fprintf(os.Stderr, "reload: applied (%s)\n", tag)
+		}
+
+		// Optional: auto-reload via fsnotify when enabled
+		if cfg.Highlight.AutoReload {
+			viper.WatchConfig()
+			viper.OnConfigChange(func(e fsnotify.Event) {
+				fmt.Fprintf(os.Stderr, "config: change detected (%s)\n", e.Name)
+				reload("fsnotify")
+			})
+			fmt.Fprintln(os.Stderr, "config: highlight auto-reload enabled")
+		} else {
+			fmt.Fprintln(os.Stderr, "config: highlight auto-reload disabled (use SIGHUP/systemctl reload)")
+		}
+
+		// Always support SIGHUP for manual reload
+		hupCh := make(chan os.Signal, 1)
+		signal.Notify(hupCh, syscall.SIGHUP)
+		go func() {
+			for range hupCh {
+				fmt.Fprintln(os.Stderr, "signal: SIGHUP received, reloading config")
+				reload("SIGHUP")
+			}
+		}()
+
+		// Wait for termination
 		<-ctx.Done()
 		fmt.Fprintln(os.Stderr, "shutting down...")
 		_ = srv.Stop()

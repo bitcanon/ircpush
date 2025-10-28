@@ -38,7 +38,7 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Version: "v0.1.0",
+	Version: "v1.0.1",
 	Use:     "ircpush",
 	Short:   "A tool to forward text messages to IRC channels",
 	Long: `A tool to forward text messages to IRC channels
