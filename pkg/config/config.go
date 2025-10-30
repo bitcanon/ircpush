@@ -63,15 +63,18 @@ type HighlightConfig struct {
 }
 
 type HighlightRule struct {
-	Kind            string   `yaml:"kind"               mapstructure:"kind"` // "word" | "regex"
+	Kind            string   `yaml:"kind"               mapstructure:"kind"`
 	Pattern         string   `yaml:"pattern"            mapstructure:"pattern"`
-	Color           string   `yaml:"color"              mapstructure:"color"` // name or "03[,15]"
+	Color           string   `yaml:"color"              mapstructure:"color"`
 	Bold            bool     `yaml:"bold"               mapstructure:"bold"`
 	Underline       bool     `yaml:"underline"          mapstructure:"underline"`
 	CaseInsensitive bool     `yaml:"case_insensitive"   mapstructure:"case_insensitive"`
 	WholeLine       bool     `yaml:"whole_line"         mapstructure:"whole_line"`
 	Channels        []string `yaml:"channels"           mapstructure:"channels"`
 	ExcludeChannels []string `yaml:"exclude_channels"   mapstructure:"exclude_channels"`
+
+	// New: color only these submatch groups (by index or name). Example: ["1","2"] or ["src","dst"]
+	Groups []string `yaml:"groups"              mapstructure:"groups"`
 }
 
 // Optional: legacy direct YAML loader (kept for tests/tools).

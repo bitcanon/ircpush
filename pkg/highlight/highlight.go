@@ -26,6 +26,8 @@ package highlight
 import (
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/bitcanon/ircpush/pkg/config"
@@ -46,9 +48,10 @@ type compiledRule struct {
 	re         *regexp.Regexp
 	stylePref  string
 	wholeLine  bool
-	includes   []string // lower-cased globs
-	excludes   []string // lower-cased globs
+	includes   []string
+	excludes   []string
 	hasFilters bool
+	groupIdxs  []int // new: which capture groups to color (1-based)
 }
 
 func New(hc config.HighlightConfig) *Highlighter {
@@ -58,26 +61,50 @@ func New(hc config.HighlightConfig) *Highlighter {
 		if re == nil {
 			continue
 		}
-		style := buildStyle(r)
 		cr := compiledRule{
-			re:        re,
-			stylePref: style,
-			wholeLine: r.WholeLine,
+			re:         re,
+			stylePref:  buildStyle(r),
+			wholeLine:  r.WholeLine,
+			includes:   nil,
+			excludes:   nil,
+			hasFilters: false,
 		}
-		// compile channel filters (store as lowercase patterns)
+		// channels include/exclude
 		for _, p := range r.Channels {
-			p = strings.TrimSpace(p)
-			if p != "" {
+			if p = strings.TrimSpace(p); p != "" {
 				cr.includes = append(cr.includes, strings.ToLower(p))
 			}
 		}
 		for _, p := range r.ExcludeChannels {
-			p = strings.TrimSpace(p)
-			if p != "" {
+			if p = strings.TrimSpace(p); p != "" {
 				cr.excludes = append(cr.excludes, strings.ToLower(p))
 			}
 		}
 		cr.hasFilters = len(cr.includes) > 0 || len(cr.excludes) > 0
+
+		// groups: map names/indices to int list
+		if len(r.Groups) > 0 {
+			var idxs []int
+			for _, g := range r.Groups {
+				g = strings.TrimSpace(g)
+				if g == "" {
+					continue
+				}
+				if i, err := strconv.Atoi(g); err == nil {
+					if i > 0 {
+						idxs = append(idxs, i)
+					}
+					continue
+				}
+				if i := re.SubexpIndex(g); i > 0 {
+					idxs = append(idxs, i)
+				}
+			}
+			// dedupe + sort
+			idxs = uniqueInts(idxs)
+			sort.Ints(idxs)
+			cr.groupIdxs = idxs
+		}
 
 		hl.rules = append(hl.rules, cr)
 	}
@@ -96,10 +123,9 @@ func (h *Highlighter) ApplyFor(channel string, s string) string {
 		return s
 	}
 	chLower := strings.ToLower(strings.TrimSpace(channel))
-
 	out := s
 
-	// Whole-line rules: first match wins, only if rule applies to this channel.
+	// whole-line first
 	for _, r := range h.rules {
 		if !h.ruleAppliesTo(r, chLower) {
 			continue
@@ -109,14 +135,18 @@ func (h *Highlighter) ApplyFor(channel string, s string) string {
 		}
 	}
 
-	// Per-match replacements
+	// per-match/group
 	for _, r := range h.rules {
 		if !h.ruleAppliesTo(r, chLower) || r.wholeLine {
 			continue
 		}
-		out = r.re.ReplaceAllStringFunc(out, func(m string) string {
-			return r.stylePref + m + ircReset
-		})
+		if len(r.groupIdxs) == 0 {
+			out = r.re.ReplaceAllStringFunc(out, func(m string) string {
+				return r.stylePref + m + ircReset
+			})
+			continue
+		}
+		out = applyGroups(out, r.re, r.groupIdxs, r.stylePref)
 	}
 	return out
 }
@@ -261,4 +291,70 @@ func normalizeNumeric(s string) string {
 		}
 	}
 	return strings.Join(parts, ",")
+}
+
+func applyGroups(s string, re *regexp.Regexp, groups []int, style string) string {
+	matches := re.FindAllStringSubmatchIndex(s, -1)
+	if len(matches) == 0 {
+		return s
+	}
+	// Build list of intervals [start,end) to color across all matches
+	type seg struct{ a, b int }
+	var segs []seg
+	for _, idx := range matches {
+		for _, g := range groups {
+			// idx layout: [m0s,m0e, g1s,g1e, g2s,g2e, ...]
+			pos := 2 * g
+			if pos+1 >= len(idx) {
+				continue
+			}
+			a, b := idx[pos], idx[pos+1]
+			if a >= 0 && b >= 0 && b > a {
+				segs = append(segs, seg{a: a, b: b})
+			}
+		}
+	}
+	if len(segs) == 0 {
+		return s
+	}
+	// sort by start, merge overlaps
+	sort.Slice(segs, func(i, j int) bool { return segs[i].a < segs[j].a })
+	merged := segs[:0]
+	for _, cur := range segs {
+		n := len(merged)
+		if n == 0 || cur.a > merged[n-1].b {
+			merged = append(merged, cur)
+		} else if cur.b > merged[n-1].b {
+			merged[n-1].b = cur.b
+		}
+	}
+
+	var bld strings.Builder
+	last := 0
+	for _, sg := range merged {
+		if sg.a > last {
+			bld.WriteString(s[last:sg.a])
+		}
+		bld.WriteString(style)
+		bld.WriteString(s[sg.a:sg.b])
+		bld.WriteString(ircReset)
+		last = sg.b
+	}
+	if last < len(s) {
+		bld.WriteString(s[last:])
+	}
+	return bld.String()
+}
+
+func uniqueInts(in []int) []int {
+	seen := make(map[int]struct{}, len(in))
+	out := make([]int, 0, len(in))
+	for _, v := range in {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
 }
