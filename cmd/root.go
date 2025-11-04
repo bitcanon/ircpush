@@ -47,8 +47,8 @@ This tool listens for incoming text messages via a TCP listener and forwards
 them to specified IRC channels, after applying regex powered syntax 
 highlighting rules. It is configurable via a YAML configuration file.
 
-Author: Mikael Schultz <bitcanon@proton.me>
-GitHub: https://github.com/bitcanon/mactool`,
+Author: Mikael Schultz <mikael@conf-t.se>
+GitHub: https://github.com/bitcanon/ircpush`,
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},
