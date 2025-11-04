@@ -44,7 +44,18 @@ import (
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Run TCP listener and forward incoming lines to IRC",
+	Short: "Run TCP listener and forward incoming messages to IRC",
+	Long: `Run TCP listener and forward incoming messages to IRC.
+	
+The serve command starts the main ircpush service, which listens for incoming
+text messages via a TCP listener and forwards them to configured IRC channels
+after applying powerful regex syntax highlighting rules.
+
+Message -> TCP listener -> Highlighting -> IRC channels
+
+The command loads its configuration from the config file (default: ./config.yaml)
+and supports hot-reloading of the highlighting rules when the config file changes
+(if enabled in config) or when receiving a SIGHUP signal.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Load config via Viper (initConfig in root initializes Viper)
 		var cfg appcfg.Config

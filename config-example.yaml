@@ -1,0 +1,96 @@
+tcp:
+  listen: ":9000"
+irc:
+  server: "irc.example.se:6697"
+  tls: true
+  tls_skip_verify: false
+  tls_client_cert: ""
+  tls_client_key: ""
+  nick: "ircbot"
+  realname: "ircbot"
+  server_pass: ""
+  identify_pass: ""
+  sasl_external: false
+  sasl_login: ""
+  sasl_pass: ""
+  channels:
+    - "#network"
+    - "#server"
+    - "#security"
+  keys:
+    "#network": ""
+highlight:
+  auto_reload: true # Enable auto-reloading of this config file when it changes
+  rules:
+    # MAC: xx:xx:xx:xx:xx:xx or xx-xx-xx-xx-xx-xx (case-insensitive)
+    - kind: regex
+      pattern: "(?i)\\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\\b"
+      color: lightblue
+
+    # MAC: Cisco dotted xxxx.xxxx.xxxx (case-insensitive)
+    - kind: regex
+      pattern: "(?i)\\b[0-9a-f]{4}\\.[0-9a-f]{4}\\.[0-9a-f]{4}\\b"
+      color: lightblue
+
+    # IPv4:port (color only the port number) — must be before the generic IPv4 rule
+    # Matches any IPv4 and port 0–65535 but only colors the port part
+    - kind: regex
+      pattern: "\\b(?:\\d{1,3}\\.){3}\\d{1,3}:(?P<port>\\d{1,5})\\b"
+      color: white
+      bold: true
+      groups: ["port"] # Color only the port part
+
+    # Global: IPv4 addresses (put AFTER IPv4:port to avoid breaking it)
+    - kind: regex
+      pattern: "\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b"
+      color: lightgreen
+      bold: false
+
+    # Optional: IPv6 addresses
+    - kind: regex
+      pattern: "(?i)\\b([0-9a-f]{1,4}:){2,7}[0-9a-f]{1,4}\\b"
+      color: cyan
+
+    # Only in #security: whole-line red background for "drop"
+    - kind: regex
+      pattern: "(?i)\\bdrop\\b"
+      color: "red"          
+      bold: true              # Make text bold
+      whole_line: true        # Apply color to whole line not just the matched text
+      channels: ["#security"] # Only apply in #security
+
+    # Device prefix everywhere (all channels)
+    - kind: regex
+      pattern: "^[A-Za-z0-9_-]+:"
+      color: teal
+      bold: true
+
+    # Interface markers only in #network and #security
+    - kind: word              # Match the whole word "input" case-insensitively
+      pattern: "input"
+      color: yellow
+      bold: true
+      case_insensitive: true  # Match case-insensitively (only for 'word' kind)
+      channels: ["#network", "#security"]
+
+    # Interface markers (color only the value after in:/out:)
+    # Example matches: in:eth0 out:(none) and in:wan0 out:lan1
+    # Colors only the interface names, not the "in:"/"out:" labels
+    - kind: regex
+      pattern: "(?i)in:(?P<in>[^, ]+)\\s+out:(?P<out>\\([^)]*\\)|[^, ]+)"
+      color: grey
+      groups: ["in","out"]
+      channels: ["#network"]
+
+    # Protocols and flags apply to all channels except #server
+    - kind: regex
+      pattern: "(?i)proto\\s+(?P<proto>tcp|udp|icmp)"
+      color: yellow
+      bold: true
+      groups: ["proto"]
+      exclude_channels: ["#server"]
+    - kind: regex
+      pattern: "(?i)\\b(SYN|ACK|FIN|RST|PSH|URG)\\b"
+      color: orange
+      bold: true
+      exclude_channels: ["#server"]   # Apply to all except #server

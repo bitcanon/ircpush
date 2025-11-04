@@ -38,14 +38,17 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Version: "v1.0.1",
+	Version: "v1.0.3",
 	Use:     "ircpush",
-	Short:   "A tool to forward text messages to IRC channels",
-	Long: `A tool to forward text messages to IRC channels
+	Short:   "Forward and colorize text messages to IRC channels",
+	Long: `Forward and colorize text messages to IRC channels.
 
-A tool that listens for incoming text messages and forwards them to
-specified IRC channels. It supports multiple protocols for receiving
-messages and can be configured via a YAML configuration file.`,
+This tool listens for incoming text messages via a TCP listener and forwards
+them to specified IRC channels, after applying regex powered syntax 
+highlighting rules. It is configurable via a YAML configuration file.
+
+Author: Mikael Schultz <bitcanon@proton.me>
+GitHub: https://github.com/bitcanon/mactool`,
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},

@@ -47,8 +47,27 @@ var clientExample = `  ircpush client`
 var clientCmd = &cobra.Command{
 	Use:   "client",
 	Short: "Send text messages to IRC channels interactively",
-	Long: `Start an interactive IRC client that sends text messages to configured IRC channels.
-Append '#channel' prefix to messages to target specific channels. Use /quit to exit.`,
+	Long: `Send text messages to IRC channels interactively.
+	
+The client command starts an interactive prompt where the user can type
+text messages to be sent to configured IRC channels. Messages can be prefixed
+with a channel name (e.g. '#channel <message>') to target specific channels.
+If no channel prefix is given, the message is broadcast to all joined channels.
+
+Examples:
+  # Send a message to all channels
+  hello everyone
+
+  # Send a message to a specific channel (e.g. #security)
+  #security Please check the logs for anomalies.
+
+  # Send a message to multiple channels
+  #network,#security Network maintenance scheduled at 02:00 UTC.
+
+Channels used must be listed in the configuration file under irc.channels.
+
+Type /quit to exit the interactive prompt.
+`,
 	Example:      clientExample,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
