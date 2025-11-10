@@ -30,22 +30,36 @@ import (
 	"runtime"
 	"strings"
 
-	_ "embed" // added
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-// Embed version string from ./version
-//
-//go:embed ../version
-var embeddedVersion string
-
 var cfgFile string
+
+// readVersion loads ./version from the repo root (or returns "dev" if missing).
+func readVersion() string {
+	// Try working directory first (go run, local dev)
+	if wd, err := os.Getwd(); err == nil {
+		if data, err := os.ReadFile(filepath.Join(wd, "version")); err == nil {
+			return strings.TrimSpace(string(data))
+		}
+	}
+	// Try walking up from executable (installed binary scenario if version shipped)
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		for i := 0; i < 4; i++ { // attempt a few parent levels
+			path := filepath.Join(exeDir, strings.Repeat("../", i), "version")
+			if data, err := os.ReadFile(path); err == nil {
+				return strings.TrimSpace(string(data))
+			}
+		}
+	}
+	return "dev"
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Version: strings.TrimSpace(embeddedVersion), // now driven by ./version file
+	Version: readVersion(),
 	Use:     "ircpush",
 	Short:   "Forward and colorize text messages to IRC channels",
 	Long: `Forward and colorize text messages to IRC channels.
