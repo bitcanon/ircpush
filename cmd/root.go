@@ -30,15 +30,22 @@ import (
 	"runtime"
 	"strings"
 
+	_ "embed" // added
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+// Embed version string from ./version
+//
+//go:embed ../version
+var embeddedVersion string
 
 var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Version: "v1.0.3",
+	Version: strings.TrimSpace(embeddedVersion), // now driven by ./version file
 	Use:     "ircpush",
 	Short:   "Forward and colorize text messages to IRC channels",
 	Long: `Forward and colorize text messages to IRC channels.
@@ -87,7 +94,7 @@ func init() {
 	_ = viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 
 	// Set a custom version template
-	rootCmd.SetVersionTemplate(`{{ printf "%s %s" .Name .Version }}`)
+	rootCmd.SetVersionTemplate(`{{ printf "%s %s\n" .Name .Version }}`)
 }
 
 // initConfig reads in config file and ENV variables if set
