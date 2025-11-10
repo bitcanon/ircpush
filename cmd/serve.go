@@ -43,42 +43,20 @@ import (
 )
 
 var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Run TCP listener and forward incoming messages to IRC",
-	Long: `Run TCP listener and forward incoming messages to IRC.
-	
-The serve command starts the main ircpush service, which listens for incoming
-text messages via a TCP listener and forwards them to configured IRC channels
-after applying powerful regex syntax highlighting rules.
-
-Message -> TCP listener -> Highlighting -> IRC channels
-
-The command loads its configuration from the config file (default: ./config.yaml)
-and supports hot-reloading of the highlighting rules when the config file changes
-(if enabled in config) or when receiving a SIGHUP signal.`,
+	Use:          "serve",
+	Short:        "Run TCP listener and forward incoming lines to IRC",
+	SilenceUsage: true, // avoid printing usage on errors
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Load config via Viper (initConfig in root initializes Viper)
+		if cf := viper.ConfigFileUsed(); cf != "" {
+			fmt.Fprintf(os.Stderr, "Config file: %s\n", cf)
+		}
 		var cfg appcfg.Config
 		if err := viper.Unmarshal(&cfg); err != nil {
 			return fmt.Errorf("unmarshal config: %w", err)
 		}
-		if cfg.IRC.Server == "" || cfg.IRC.Nick == "" {
-			return fmt.Errorf("irc.server and irc.nick must be set in config")
-		}
-		if len(cfg.IRC.Channels) == 0 {
-			return fmt.Errorf("irc.channels must contain at least one channel")
-		}
-		if cfg.TCP.Listen == "" {
-			return fmt.Errorf("tcp.listen must be set (e.g. 10.20.30.40:9000 or :9000)")
-		}
-
-		// Verbose summary
+		// Print effective settings to catch env overrides
 		fmt.Fprintf(os.Stderr, "IRC server: %s\n", cfg.IRC.Server)
-		if cfg.IRC.TLS {
-			fmt.Fprintf(os.Stderr, "TLS: enabled (skip_verify=%v)\n", cfg.IRC.TLSSkipVerify)
-		} else {
-			fmt.Fprintln(os.Stderr, "TLS: disabled")
-		}
+		fmt.Fprintf(os.Stderr, "TLS: %v (skip_verify=%v)\n", cfg.IRC.TLS, cfg.IRC.TLSSkipVerify)
 		fmt.Fprintf(os.Stderr, "Nick: %s, Channels: %s\n", cfg.IRC.Nick, strings.Join(cfg.IRC.Channels, ", "))
 		fmt.Fprintf(os.Stderr, "TCP listen: %s\n", cfg.TCP.Listen)
 
