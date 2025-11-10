@@ -18,15 +18,9 @@ func TestLoadFile(t *testing.T) {
 			name:     "ValidConfigFile",
 			filePath: "testdata/valid_config.yaml",
 			expected: &Config{
-				TCP: struct {
-					Listen string `yaml:"listen" mapstructure:"listen"`
-				}{
-					Listen: ":6667",
-				},
-				UDP: struct {
-					Listen string `yaml:"listen" mapstructure:"listen"`
-				}{
-					Listen: ":6667",
+				TCP: TCPConfig{
+					Listen:       ":6667",
+					MaxLineBytes: 65536,
 				},
 				IRC: IRCConfig{
 					Server:        "irc.example.com:6667",
@@ -93,10 +87,7 @@ func TestLoadFile(t *testing.T) {
 
 // compareConfigs compares two Config structs for equality.
 func compareConfigs(a, b *Config) bool {
-	if a.TCP.Listen != b.TCP.Listen {
-		return false
-	}
-	if a.UDP.Listen != b.UDP.Listen {
+	if a.TCP.Listen != b.TCP.Listen || a.TCP.MaxLineBytes != b.TCP.MaxLineBytes {
 		return false
 	}
 	if a.IRC.Server != b.IRC.Server ||

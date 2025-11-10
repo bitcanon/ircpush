@@ -40,8 +40,8 @@ import (
 
 // Server receives messages over TCP and forwards them to IRC.
 type Server struct {
-	ListenAddr   string
-	IRC          *irc.Client
+	ListenAddr string
+	IRC        *irc.Client
 
 	// Highlighter can be swapped at runtime via SetHighlighter.
 	mu sync.RWMutex
@@ -207,7 +207,12 @@ func (s *Server) handleConn(ctx context.Context, c net.Conn) {
 		}
 	}
 	if err := sc.Err(); err != nil {
-		s.logf("tcp: %s scanner error: %v", ra, err)
+		// Special-case too-long tokens to make drop explicit
+		if errors.Is(err, bufio.ErrTooLong) {
+			s.logf("tcp: %s line exceeded max_line_bytes=%d, dropping", ra, s.MaxLineBytes)
+		} else {
+			s.logf("tcp: %s scanner error: %v", ra, err)
+		}
 	}
 }
 

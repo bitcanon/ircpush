@@ -65,11 +65,16 @@ and supports hot-reloading of the highlighting rules when the config file change
 		if err := viper.Unmarshal(&cfg); err != nil {
 			return fmt.Errorf("unmarshal config: %w", err)
 		}
+		if cfg.TCP.MaxLineBytes == 0 {
+			cfg.TCP.MaxLineBytes = 64 * 1024
+		}
 		// Print effective settings to catch env overrides
 		fmt.Fprintf(os.Stderr, "IRC server: %s\n", cfg.IRC.Server)
 		fmt.Fprintf(os.Stderr, "TLS: %v (skip_verify=%v)\n", cfg.IRC.TLS, cfg.IRC.TLSSkipVerify)
 		fmt.Fprintf(os.Stderr, "Nick: %s, Channels: %s\n", cfg.IRC.Nick, strings.Join(cfg.IRC.Channels, ", "))
 		fmt.Fprintf(os.Stderr, "TCP listen: %s\n", cfg.TCP.Listen)
+		fmt.Fprintf(os.Stderr, "IRC msg policy: max_len=%d split_long=%v\n", cfg.IRC.MaxMessageLen, cfg.IRC.SplitLong)
+		fmt.Fprintf(os.Stderr, "TCP max_line_bytes: %d (0=default 65536)\n", cfg.TCP.MaxLineBytes)
 
 		// Build IRC client
 		cli, err := irc.New(cfg.IRC, irc.Handlers{
@@ -112,10 +117,8 @@ and supports hot-reloading of the highlighting rules when the config file change
 			ListenAddr:   cfg.TCP.Listen,
 			IRC:          cli,
 			HL:           hl,
-			MaxLineBytes: 128 * 1024,
+			MaxLineBytes: cfg.TCP.MaxLineBytes, // new: honor tcp.max_line_bytes
 			Logger:       slog,
-			// Only log per-message traffic when --debug or IRCPUSH_DEBUG=true
-			LogMessages: viper.GetBool("debug"),
 		}
 		if err := srv.Start(ctx); err != nil {
 			return err

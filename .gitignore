@@ -34,6 +34,7 @@ go.work.sum
 # Testing config files
 config.yaml
 config.yml
+config-test*.yaml
 
 # Ignore executables in the root directory
 /ircpush

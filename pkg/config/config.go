@@ -29,32 +29,33 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	TCP struct {
-		Listen string `yaml:"listen" mapstructure:"listen"`
-	} `yaml:"tcp" mapstructure:"tcp"`
-	UDP struct {
-		Listen string `yaml:"listen" mapstructure:"listen"`
-	} `yaml:"udp" mapstructure:"udp"`
-	IRC       IRCConfig       `yaml:"irc" mapstructure:"irc"`
-	Highlight HighlightConfig `yaml:"highlight" mapstructure:"highlight"`
+// TCPConfig holds TCP listener settings.
+type TCPConfig struct {
+	Listen       string `yaml:"listen"          mapstructure:"listen"`
+	MaxLineBytes int    `yaml:"max_line_bytes"  mapstructure:"max_line_bytes"` // 0 => default 65536
 }
 
 type IRCConfig struct {
-	Server        string            `yaml:"server"           mapstructure:"server"`
-	TLS           bool              `yaml:"tls"              mapstructure:"tls"`
-	TLSSkipVerify bool              `yaml:"tls_skip_verify"  mapstructure:"tls_skip_verify"`
-	TLSClientCert string            `yaml:"tls_client_cert"  mapstructure:"tls_client_cert"`
-	TLSClientKey  string            `yaml:"tls_client_key"   mapstructure:"tls_client_key"`
-	Nick          string            `yaml:"nick"             mapstructure:"nick"`
-	Realname      string            `yaml:"realname"         mapstructure:"realname"`
-	ServerPass    string            `yaml:"server_pass"      mapstructure:"server_pass"`
-	IdentifyPass  string            `yaml:"identify_pass"    mapstructure:"identify_pass"`
-	SASLExternal  bool              `yaml:"sasl_external"    mapstructure:"sasl_external"`
-	SASLLogin     string            `yaml:"sasl_login"       mapstructure:"sasl_login"`
-	SASLPass      string            `yaml:"sasl_pass"        mapstructure:"sasl_pass"`
-	Channels      []string          `yaml:"channels"         mapstructure:"channels"`
-	Keys          map[string]string `yaml:"keys"             mapstructure:"keys"`
+	Server        string            `yaml:"server"          mapstructure:"server"`
+	TLS           bool              `yaml:"tls"             mapstructure:"tls"`
+	TLSSkipVerify bool              `yaml:"tls_skip_verify" mapstructure:"tls_skip_verify"`
+	TLSClientCert string            `yaml:"tls_client_cert" mapstructure:"tls_client_cert"`
+	TLSClientKey  string            `yaml:"tls_client_key"  mapstructure:"tls_client_key"`
+	Nick          string            `yaml:"nick"            mapstructure:"nick"`
+	Realname      string            `yaml:"realname"        mapstructure:"realname"`
+	ServerPass    string            `yaml:"server_pass"     mapstructure:"server_pass"`
+	IdentifyPass  string            `yaml:"identify_pass"   mapstructure:"identify_pass"`
+	SASLExternal  bool              `yaml:"sasl_external"   mapstructure:"sasl_external"`
+	SASLLogin     string            `yaml:"sasl_login"      mapstructure:"sasl_login"`
+	SASLPass      string            `yaml:"sasl_pass"       mapstructure:"sasl_pass"`
+	Channels      []string          `yaml:"channels"        mapstructure:"channels"`
+	Keys          map[string]string `yaml:"keys"   mapstructure:"keys"`
+
+	// New: maximum length of an IRC message payload after highlighting (characters). 0 = unlimited.
+	MaxMessageLen int `yaml:"max_message_len" mapstructure:"max_message_len"`
+	// New: if true, split messages longer than MaxMessageLen into multiple PRIVMSGs;
+	// if false, truncate and append "..." (only when MaxMessageLen > 3).
+	SplitLong bool `yaml:"split_long" mapstructure:"split_long"`
 }
 
 type HighlightConfig struct {
@@ -75,6 +76,13 @@ type HighlightRule struct {
 
 	// New: color only these submatch groups (by index or name). Example: ["1","2"] or ["src","dst"]
 	Groups []string `yaml:"groups"              mapstructure:"groups"`
+}
+
+// Config is the root application config.
+type Config struct {
+	IRC       IRCConfig       `yaml:"irc"        mapstructure:"irc"`
+	TCP       TCPConfig       `yaml:"tcp"        mapstructure:"tcp"`
+	Highlight HighlightConfig `yaml:"highlight"  mapstructure:"highlight"`
 }
 
 // Optional: legacy direct YAML loader (kept for tests/tools).

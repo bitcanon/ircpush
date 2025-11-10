@@ -6,7 +6,7 @@ require github.com/fluffle/goirc v1.3.3
 
 require (
 	github.com/emersion/go-sasl v0.0.0-20220912192320-0145f2c60ead // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/mock v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

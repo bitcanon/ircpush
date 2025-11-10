@@ -246,15 +246,83 @@ func (c *Client) Start(ctx context.Context) error {
 // Broadcast sends msg to all configured channels.
 func (c *Client) Broadcast(msg string) {
 	for _, ch := range c.cfg.Channels {
-		c.conn.Privmsg(ensureChanPrefix(ch), msg)
+		c.sendPrepared([]string{ch}, msg)
 	}
 }
 
-// SendTo sends msg to the specified channels.
 func (c *Client) SendTo(channels []string, msg string) {
-	for _, ch := range channels {
-		c.conn.Privmsg(ensureChanPrefix(ch), msg)
+	c.sendPrepared(channels, msg)
+}
+
+// sendPrepared applies length policy (split/truncate) then sends each segment.
+func (c *Client) sendPrepared(channels []string, msg string) {
+	segs := c.segmentMessage(msg)
+	for _, seg := range segs {
+		for _, ch := range channels {
+			if c.conn != nil {
+				c.conn.Privmsg(ch, seg)
+			}
+		}
 	}
+}
+
+// segmentMessage returns message segments according to MaxMessageLen/SplitLong.
+func (c *Client) segmentMessage(msg string) []string {
+	limit := c.cfg.MaxMessageLen
+	// If no limit, return original message
+	if limit <= 0 {
+		return []string{msg}
+	}
+
+	// Check length and split/truncate as needed
+	// The runes conversion handles multi-byte UTF-8 characters correctly.
+	runes := []rune(msg)
+	if len(runes) <= limit {
+		return []string{msg}
+	}
+
+	// I SplitLong is false, truncate with "..." if possible
+	if !c.cfg.SplitLong {
+		// Check if we can append "..."
+		if limit > 3 {
+			return []string{string(runes[:limit-3]) + "..."}
+		}
+		// Just truncate without ellipsis
+		return []string{string(runes[:limit])}
+	}
+
+	// II SplitLong is true, split into multiple segments
+	var out []string
+	start := 0
+	for start < len(runes) {
+		end := min(start+limit, len(runes))
+		segment := runes[start:end]
+
+		// Try to break on last space inside the segment (except for final segment).
+		if end < len(runes) {
+			if idx := lastSpace(segment); idx > 0 {
+				end = start + idx
+				segment = runes[start:end]
+			}
+		}
+
+		out = append(out, string(segment))
+		start = end
+		// Skip leading space in next chunk to avoid segments starting with space.
+		for start < len(runes) && runes[start] == ' ' {
+			start++
+		}
+	}
+	return out
+}
+
+func lastSpace(rs []rune) int {
+	for i := len(rs) - 1; i >= 0; i-- {
+		if rs[i] == ' ' {
+			return i
+		}
+	}
+	return -1
 }
 
 // Quit asks the server to close the connection with a reason.
