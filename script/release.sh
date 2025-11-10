@@ -23,11 +23,14 @@ USER="bitcanon"
 REPO="ircpush"
 BINARY="${REPO}"
 
+# Inject version into the binary via -ldflags
+LD_PKG="github.com/${USER}/${REPO}/cmd"
+GO_LDFLAGS="-s -w -X ${LD_PKG}.buildVersion=${TAG}"
+
 echo "Release version: ${VERSION} (tag: ${TAG})"
 
 cd "${PROJDIR}"
 
-# Run tests
 echo "Running tests..."
 go test ./...
 echo "Tests passed."
@@ -36,7 +39,6 @@ FILELIST=""
 
 for ARCH in amd64 386 arm64; do
   for OS in darwin linux windows freebsd; do
-    # Skip unsupported combo
     if [[ "${OS}" == "darwin" && "${ARCH}" == "386" ]]; then
       continue
     fi
@@ -47,7 +49,8 @@ for ARCH in amd64 386 arm64; do
     rm -f "${BINFILE}"
 
     echo "Building ${OS}/${ARCH}..."
-    GOOS="${OS}" GOARCH="${ARCH}" go build -o "${BINFILE}" github.com/${USER}/${REPO}
+    GOOS="${OS}" GOARCH="${ARCH}" CGO_ENABLED=0 \
+      go build -trimpath -ldflags "${GO_LDFLAGS}" -o "${BINFILE}" .
 
     if [[ "${OS}" == "windows" ]]; then
       ARCHIVE="${BINARY}-${OS}-${ARCH}-${VERSION}.zip"
@@ -72,5 +75,5 @@ gh release create "${TAG}" ${FILELIST}
 echo "Cleaning up archives..."
 rm -f ${FILELIST}
 
-echo "Done."
-echo "To bump version: edit ./version (e.g. v1.0.5), commit, rerun this script."
+echo "Done. Binaries embed version ${TAG}."
+echo "To bump version: edit ./version (e.g. v1.0.6), commit, rerun this script."

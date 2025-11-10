@@ -36,6 +36,10 @@ import (
 
 var cfgFile string
 
+// buildVersion is injected at build time via -ldflags.
+// Example: -X github.com/bitcanon/ircpush/cmd.buildVersion=v1.0.5
+var buildVersion = ""
+
 // readVersion loads ./version from the repo root (or returns "dev" if missing).
 func readVersion() string {
 	// Try working directory first (go run, local dev)
@@ -44,22 +48,30 @@ func readVersion() string {
 			return strings.TrimSpace(string(data))
 		}
 	}
-	// Try walking up from executable (installed binary scenario if version shipped)
+	// Optional: look next to the executable (if you decide to ship the file)
 	if exe, err := os.Executable(); err == nil {
 		exeDir := filepath.Dir(exe)
-		for i := 0; i < 4; i++ { // attempt a few parent levels
-			path := filepath.Join(exeDir, strings.Repeat("../", i), "version")
-			if data, err := os.ReadFile(path); err == nil {
-				return strings.TrimSpace(string(data))
-			}
+		if data, err := os.ReadFile(filepath.Join(exeDir, "version")); err == nil {
+			return strings.TrimSpace(string(data))
 		}
+	}
+	return "dev"
+}
+
+func appVersion() string {
+	if v := strings.TrimSpace(buildVersion); v != "" {
+		return v
+	}
+	// Fallback for local dev runs
+	if v := strings.TrimSpace(readVersion()); v != "" {
+		return v
 	}
 	return "dev"
 }
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Version: readVersion(),
+	Version: appVersion(),
 	Use:     "ircpush",
 	Short:   "Forward and colorize text messages to IRC channels",
 	Long: `Forward and colorize text messages to IRC channels.
