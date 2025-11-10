@@ -118,7 +118,7 @@ IRCPUSH_IRC_TLS="true"
 
 Test:
 ```bash
-echo '#server hello from nc' | nc 10.20.30.40 9000
+echo '#server hello from nc' | nc -q 0 10.20.30.40 9000
 ```
 
 ## Highlighting rules (extended)
