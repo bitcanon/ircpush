@@ -164,6 +164,41 @@ Shows:
 
 Helps detect mismatches (e.g. TLS forced on plaintext port).
 
+## Generate test data
+Use the built-in generator to produce realistic log lines and send them to the TCP input.
+Implementation: see [cmd/gentest.go](cmd/gentest.go)
+
+Basic usage:
+```bash
+ircpush gen --config ./config.yaml
+```
+
+Examples:
+```bash
+# Send 100 mixed-format lines to the configured tcp.listen (or :9000 if unset)
+ircpush gen --config ./config.yaml --count 100
+
+# Target a specific address and channel, faster rate with jitter
+ircpush gen --target 127.0.0.1:9000 --channel "#server" --rate 200ms --jitter 0.3
+
+# Limit formats and levels
+ircpush gen --formats "syslog,cisco,routeros" --levels "info,warn,error"
+```
+
+Flags:
+- --formats: comma-separated formats to generate (default includes syslog, cisco, routeros, checkmk, juniper, fortigate, paloalto, haproxy, nginx, postfix, sshd, windows).
+- --levels: comma-separated severities/keywords mixed into messages.
+- --rate: interval between messages (e.g. 500ms, 1s).
+- --count: total messages to send (0=infinite).
+- --target: override TCP target (defaults to tcp.listen from config, or :9000 if empty). If it starts with “:”, 127.0.0.1 is prepended.
+- --channel: optional channel prefix (e.g. “#security”), prepended to each line so the server routes to that channel.
+- --randomize: pick formats randomly (default true).
+- --jitter: fractional jitter applied to rate (0..1).
+
+Notes:
+- The generator sends over TCP to the same input consumed by ircpush serve.
+- When --channel is set, lines are prefixed with “#channel ” so the server targets that channel; otherwise, the server broadcasts to all configured channels.
+
 ## Troubleshooting
 Issue: Server logs “Client unregistered … Timeout” with in>0, out=0.
 Cause: TLS/plaintext mismatch or missing NICK/USER due to early client failure.
@@ -183,9 +218,3 @@ Leading bytes 16 03 01 indicate TLS handshake sent to plaintext port.
 ## Reloading
 - Highlight rules: auto if highlight.auto_reload: true.
 - Structural changes (tcp.listen, IRC server): restart service.
-
-## Versioning
-Binary reads ./version file (or falls back to dev). Release tags match its content.
-
-## License
-MIT.
